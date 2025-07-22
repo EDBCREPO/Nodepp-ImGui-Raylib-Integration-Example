@@ -26,18 +26,18 @@ template< class T > T clamp( const T& val, const T& _min, const T& _max ){ retur
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-#define coNext         do { _state_ = _LINE_; return  1; case _LINE_:; } while(0)
-#define coYield(VALUE) do { _state_ = VALUE ; return  1; case VALUE :; } while(0)
-#define coWait(VALUE)  do {  while  ( VALUE ){ coNext; }               } while(0)
-#define coGoto(VALUE)  do { _state_ = VALUE ; return  1;               } while(0)
-#define coStay(VALUE)  do { _state_ = VALUE ; return  0;               } while(0)
-#define coEnd          do { _state_ = 0;      return -1;               } while(0)
-#define coStop            } _state_ = 0;      return -1;               }
+#define coNext         do { _state_ = _LINE_; return  1; case _LINE_:; } while(0);
+#define coYield(VALUE) do { _state_ = VALUE ; return  1; case VALUE :; } while(0);
+#define coWait(VALUE)  do {  while  ( VALUE ){ coNext; }               } while(0);
+#define coGoto(VALUE)  do { _state_ = VALUE ; /*-----*/ return  1;     } while(0);
+#define coStay(VALUE)  do { _state_ = VALUE ; /*-----*/ return  0;     } while(0);
+#define coEnd          do { _time_ = 0; _state_=_time_; return -1;     } while(0);
+#define coStop            } _time_ = 0; _state_=_time_; return -1;     } while(0);
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
 #define coStart  static int _state_=0; static ulong _time_=0; coBegin
-#define coBegin  { switch(_state_) { case 0:;
+#define coBegin  do { switch(_state_) { case 0:;
 #define coEmit   int operator()
 
 #define coSet(VALUE) _state_ = VALUE

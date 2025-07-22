@@ -115,7 +115,7 @@ namespace nodepp { namespace generator { namespace file {
             coWait((state=str->_read(str->get_buffer_data(),min(d,size)))==-2);
         if( state>0 ){ data=string_t(str->get_buffer_data(),(ulong)state); }}
 
-        state = min( data.size(), size ); 
+        state = min( data.size(), size );
         str->set_borrow( data.splice( state, data.size() ) );
 
     coFinish
@@ -131,8 +131,8 @@ namespace nodepp { namespace generator { namespace file {
 
         if(!str->is_available() || msg.empty() ){ coEnd; }
 
-        coWait( str->_write_( msg.data(), msg.size(), data )==1 );
-        state = data;
+        do{ coWait((state=str->_write( msg.data()+data, msg.size()-data ))==-2 );
+        if( state>0 ){ data += state; }} while ( state>=0 && data<msg.size() );
 
     coFinish
     }};
@@ -455,66 +455,66 @@ namespace nodepp { namespace generator { namespace ws {
 
     /*─······································································─*/
 
-    template< class T > bool server( T& cli ) { try {
+    template< class T > bool server( T& cli ) { do {
         auto data = cli.read(); cli.set_borrow( data );
 
-        if( cli.read_header() < 0 ){ throw ""; }
-        if( cli.headers.has("Sec-WebSocket-Key") ){
+        if( cli.read_header() != 0 ){ break; }
+        if( cli.headers.has("Sec-Websocket-Key") ){
 
-            string_t sec = cli.headers["Sec-WebSocket-Key"];
+            string_t sec = cli.headers["Sec-Websocket-Key"];
                 auto sha = crypto::hash::SHA1(); sha.update( sec + SECRET );
             string_t enc = encoder::base64::get( encoder::buffer::hex2buff(sha.get()) );
 
             cli.write_header( 101, header_t({
-                { "Sec-WebSocket-Accept", enc },
+                { "Sec-Websocket-Accept", enc },
                 { "Connection", "upgrade" },
                 { "Upgrade", "websocket" }
             }) );
 
-            cli.stop();             return true;
-        }   cli.set_borrow( data ); throw "";
+            cli.stop(); return true;
+        }   cli.set_borrow( data );
 
-    } catch(...) {} return false; }
+    } while(0); return false; }
 
     /*─······································································─*/
 
-    template< class T > bool client( T& cli, string_t url ) { try {
+    template< class T > bool client( T& cli, string_t url ) { do {
         string_t hsh = encoder::key::generate("abcdefghiABCDEFGHI0123456789",22);
         string_t key = string::format("%s==",hsh.data());
 
         header_t header ({
             { "Upgrade", "websocket" },
             { "Connection", "upgrade" },
-            { "Sec-WebSocket-Key", key },
-            { "Sec-WebSocket-Version", "13" }
+            { "Sec-Websocket-Key", key },
+            { "Sec-Websocket-Version", "13" }
         });
 
-        cli.write_header( "GET", url::path(url), "HTTP/1.0", header );
+        cli.write_header( "GET", url::path(url), "HTTP/1.1", header );
 
-        if( cli.read_header() < 0 ){
+        if( cli.read_header() != 0 ){
             cli.onError.emit("Could not connect to server");
-            cli.close(); throw "";
+            cli.close(); break;
         }
 
         if( cli.status != 101 ){
             cli.onError.emit(string::format("Can't connect to WS Server -> status %d",cli.status));
-            cli.close(); throw "";
+            cli.close(); break;
         }
 
-        if( cli.headers.has("Sec-WebSocket-Accept") ){
+        if( cli.headers.has("Sec-Websocket-Accept") ){
 
-            string_t dta = cli.headers["Sec-WebSocket-Accept"];
+            string_t dta = cli.headers["Sec-Websocket-Accept"];
                 auto sha = crypto::hash::SHA1(); sha.update( key + SECRET );
             string_t enc = encoder::base64::get( encoder::buffer::hex2buff(sha.get()) );
 
             if( dta != enc ){
-                throw except_t("secret key does not match");
-                cli.close(); throw "";
-            }   cli.stop ();
+                cli.onError.emit("secret key does not match"); 
+                cli.close(); break;
+            }   cli.stop (); return true;
 
         }
 
-    } catch(...) { return false; } return true; }
+    } while(0); return false; }
 
     /*─······································································─*/
 

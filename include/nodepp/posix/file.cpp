@@ -17,6 +17,12 @@
 /*────────────────────────────────────────────────────────────────────────────*/
 
 namespace nodepp { class file_t {
+private:
+
+    virtual void kill() const noexcept {
+    if( !is_std() ){ ::close(obj->fd); } 
+    }
+
 protected:
 
     struct NODE {
@@ -28,7 +34,7 @@ protected:
         ptr_t<char>  buffer;
         string_t     borrow;
         limit::probe_t limit_probe;
-    };  ptr_t<NODE> obj = new NODE();
+    };  ptr_t<NODE> obj;
 
     bool is_std() const noexcept { return obj->fd>0 && obj->fd<3; }
 
@@ -78,20 +84,20 @@ public:
 
     /*─······································································─*/
 
-    file_t( const string_t& path, const string_t& mode, const ulong& _size=CHUNK_SIZE ){
+    file_t( const string_t& path, const string_t& mode, const ulong& _size=CHUNK_SIZE ) : obj( new NODE() ) {
             obj->fd = open( path.data(), get_fd_flag( mode ), 0644 );
         if( obj->fd < 0 ){ throw except_t("such file or directory does not exist"); }
         set_nonbloking_mode(); set_buffer_size( _size );
-        if(!limit::fileno_ready() ){ free(); throw except_t(" max fileno reached "); }
+        if(!limit::fileno_ready() ){ except_t(" max fileno reached "); }
     }
 
-    file_t( const int& fd, const ulong& _size=CHUNK_SIZE ){
+    file_t( const int& fd, const ulong& _size=CHUNK_SIZE ) : obj( new NODE() ) {
         if( fd<0 ){ throw except_t("such file or directory does not exist"); }
         obj->fd = fd; set_nonbloking_mode(); set_buffer_size( _size );
-        if(!limit::fileno_ready() ){ free(); throw except_t(" max fileno reached "); }
+        if(!limit::fileno_ready() ){ except_t(" max fileno reached "); }
     }
      
-    file_t() noexcept {}
+    file_t() noexcept : obj( new NODE() ) {}
 
     /*─······································································─*/
 
@@ -155,14 +161,14 @@ public:
     virtual void free() const noexcept {
 
         if( obj->state == -3 && obj.count() > 1 ){ resume(); return; }
-        if( obj->state == -2 ){ return; } close(); obj->state = -2;
-
-        if( !is_std() ){ ::close(obj->fd); }
-        
+        if( obj->state == -2 ){ return; } obj->state = -2;
+       
         onUnpipe.clear(); onResume.clear();
         onError .clear(); onStop  .clear();
         onOpen  .clear(); onPipe  .clear();
-        onData  .clear(); onClose .emit ();
+        onData  .clear(); /*-------------*/
+        
+        onDrain.emit(); onClose.emit(); kill();
 
     }
 
@@ -230,7 +236,7 @@ public:
         if( is_closed() ){ return -1; } if( sx==0 ){ return 0; }
         obj->feof = ::read( obj->fd, bf, sx );
         obj->feof = is_blocked(obj->feof)? -2 : obj->feof;
-        if( obj->feof <= 0 && obj->feof != -2 ){ close(); }
+        if( obj->feof <= 0 && obj->feof != -2 ){ free(); }
         return obj->feof;
     }
 
@@ -238,7 +244,7 @@ public:
         if( is_closed() ){ return -1; } if( sx==0 ){ return 0; }
         obj->feof = ::write( obj->fd, bf, sx );
         obj->feof = is_blocked(obj->feof)? -2 : obj->feof;
-        if( obj->feof <= 0 && obj->feof != -2 ){ close(); }
+        if( obj->feof <= 0 && obj->feof != -2 ){ free(); }
         return obj->feof;
     }
 

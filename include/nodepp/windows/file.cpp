@@ -15,6 +15,10 @@
 /*────────────────────────────────────────────────────────────────────────────*/
 
 namespace nodepp { class file_t {
+private:
+
+    void kill() const noexcept { CloseHandle( obj->fd ); }
+
 protected:
 
     struct NODE {
@@ -27,7 +31,7 @@ protected:
         ptr_t<char>  buffer;
         string_t     borrow;
         limit::probe_t limit_probe;
-    };  ptr_t<NODE> obj = new NODE();
+    };  ptr_t<NODE> obj;
     
     /*─······································································─*/
 
@@ -76,20 +80,20 @@ public:
     
     /*─······································································─*/
 
-    file_t( const string_t& path, const string_t& mode, const ulong& _size=CHUNK_SIZE ){
+    file_t( const string_t& path, const string_t& mode, const ulong& _size=CHUNK_SIZE ) : obj( new NODE() ) {
         auto fg = get_fd_flag( mode ); obj->fd = CreateFileA( path.c_str(), fg[0], fg[1], NULL, fg[2], fg[3], NULL ); 
         if( obj->fd == INVALID_HANDLE_VALUE ){ throw except_t("such file or directory does not exist"); }
         set_nonbloking_mode(); set_buffer_size( _size ); 
-        if(!limit::fileno_ready() ){ free(); throw except_t(" max fileno reached "); }
+        if(!limit::fileno_ready() ){ except_t(" max fileno reached "); }
     }
 
-    file_t( const HANDLE& fd, const ulong& _size=CHUNK_SIZE ) {
+    file_t( const HANDLE& fd, const ulong& _size=CHUNK_SIZE ) : obj( new NODE() ) {
         if( fd == INVALID_HANDLE_VALUE ){ throw except_t("such file or directory does not exist"); }
         obj->fd = fd; set_nonbloking_mode(); set_buffer_size( _size ); 
-        if(!limit::fileno_ready() ){ free(); throw except_t(" max fileno reached "); }
+        if(!limit::fileno_ready() ){ except_t(" max fileno reached "); }
     }
 
-    file_t() noexcept {}
+    file_t() noexcept : obj( new NODE() ) {}
 
     /*─······································································─*/
 
@@ -152,17 +156,18 @@ public:
     }
     
     /*─······································································─*/
-    
-    virtual void free() const noexcept {
-        
-        if( obj->state == -3 && obj.count() > 1 ){ resume(); return; }
-        if( obj->state == -2 ){ return; } close(); obj->state = -2;
-        CloseHandle( obj->fd );
 
+    virtual void free() const noexcept {
+
+        if( obj->state == -3 && obj.count() > 1 ){ resume(); return; }
+        if( obj->state == -2 ){ return; } obj->state = -2;
+       
         onUnpipe.clear(); onResume.clear();
-        onStop  .clear(); onError .clear();
-        onOpen  .clear(); onPipe  .clear(); 
-        onData  .clear(); onClose .emit (); 
+        onError .clear(); onStop  .clear();
+        onOpen  .clear(); onPipe  .clear();
+        onData  .clear(); /*-------------*/
+        
+        kill(); onDrain.emit(); onClose.emit();
 
     }
     
@@ -218,7 +223,7 @@ public:
         if( is_closed() ){ return -1; } if( sx==0 ){ return 0; } DWORD c = 0; 
         obj->feof = ReadFile( obj->fd, bf, sx, &c, &obj->ov );
         obj->feof = is_blocked( obj->feof, c ) ? -2 : c;
-        if( obj->feof <= 0 && obj->feof != -2 ){ close(); }
+        if( obj->feof <= 0 && obj->feof != -2 ){ free(); }
         return obj->feof;
     }
 
@@ -226,7 +231,7 @@ public:
         if( is_closed() ){ return -1; } if( sx==0 ){ return 0; } DWORD c = 0; 
         obj->feof = WriteFile( obj->fd, bf, sx, &c, &obj->ov );
         obj->feof = is_blocked( obj->feof, c ) ? -2 : c;
-        if( obj->feof <= 0 && obj->feof != -2 ){ close(); }
+        if( obj->feof <= 0 && obj->feof != -2 ){ free(); }
         return obj->feof;
     }
 

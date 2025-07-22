@@ -472,7 +472,7 @@ namespace nodepp { namespace regex {
     template< class... T > 
     string_t format( const string_t& val, const T&... args ){
         auto count = string::count( [](...){ return true; }, args... );
-        queue_t<string_t> out; ulong idx=0; int y=0;
+        queue_t<string_t> out; ulong idx=0;
         string_t ptt = "\\$\\{\\d+\\}";
 
         for( auto &x: search_all( val, ptt ) ){

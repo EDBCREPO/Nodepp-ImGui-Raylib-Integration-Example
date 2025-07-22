@@ -45,15 +45,15 @@ namespace nodepp { class https_t : public ssocket_t { public:
 
     /*─······································································─*/
 
-    int read_header() noexcept { try { if( !is_available() ){ throw ""; }
+    int read_header() noexcept { do { if( !is_available() ){ break; }
 
-        auto base= regex::match_all( read_line(), "\\S+" ); 
-        if ( base.size() != 3 ){ throw ""; } protocol = "HTTPS";
+        auto base= regex::get_memory( read_line(), "^([^ ]+) ([^ ]+) ([^\r]+)" );
+        if ( base.size() != 3 ){ break; } protocol = "HTTPS";
 
         if ( !regex::test( base[1], "^\\d+" ) ) {
             string_t host=!headers.has("Host")? "localhost": headers["Host"];
                      
-            url    = string::format("http://%s%s", host.get(), base[1].get() );
+            url    = string::format("https://%s%s", host.get(), base[1].get() );
             path   = nodepp::url::path  ( url );
             search = nodepp::url::search( url );
             query  = nodepp::url::query ( url );
@@ -62,12 +62,12 @@ namespace nodepp { class https_t : public ssocket_t { public:
         } else { version = base[0]; status = string::to_uint( base[1] ); }
 
         for(;;){
-            auto line= read_line(); auto raw = regex::search( line,": " ); 
-            if ( raw.empty() ){ break; }
-            headers[ line.slice(0,raw[0]) ]=line.slice(raw[1],-2);
+            auto x = read_line();
+            auto y = x.find( ": " ); if( y==nullptr ){ break; }
+            headers[ x.slice( 0, y[0] ).to_capital_case() ] = x.slice( y[1], -2 );
         }
 
-    } catch(...){ return -1; } return 0; }
+    return 0; } while(0); return -1; }
     
     /*─······································································─*/
 

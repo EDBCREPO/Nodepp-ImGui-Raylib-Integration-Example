@@ -16,6 +16,11 @@
 namespace nodepp { class popen_t : public generator_t {
 private:
 
+    void kill() const noexcept { 
+        ::CloseHandle( obj->pi.hProcess ); 
+        ::CloseHandle( obj->pi.hThread ); 
+    }
+
     using _read_ = generator::file::read;
 
 protected:
@@ -108,14 +113,17 @@ public:
     void free() const noexcept {
         
         if( obj->state == -3 && obj.count() > 1 ){ resume(); return; }
-        if( obj->state == -2 ){ return; } close(); obj->state = -2;
-            obj->std_error.close(); obj->std_output.close();
-            obj->std_input.close(); kill();
+        if( obj->state == -2 ){ return; }
+        
+        obj->std_error.close(); obj->std_output.close();
+        obj->std_input.close();
     
         onResume.clear(); onError.clear(); 
         onStop  .clear(); onOpen .clear();
         onData  .clear(); onDout .clear(); 
-        onDerr  .clear(); onClose.emit (); 
+        onDerr  .clear(); /*------------*/
+        
+        obj->state = -2; kill(); onDrain.emit(); onClose.emit();
 
     }
 
@@ -154,7 +162,6 @@ public:
 
     /*─······································································─*/
 
-    void   kill() const noexcept { ::CloseHandle( obj->pi.hProcess ); ::CloseHandle( obj->pi.hThread ); }
     void  flush() const noexcept { std_input().flush(); std_output().flush(); std_error().flush(); }
     void resume() const noexcept { if(obj->state== 0) { return; } obj->state= 0; onResume.emit(); }
     void  close() const noexcept { if(obj->state < 0) { return; } obj->state=-1; onDrain.emit(); }

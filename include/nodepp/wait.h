@@ -29,6 +29,7 @@ protected:
 public:
 
     wait_t() noexcept : obj( new NODE() ) {} 
+   ~wait_t() noexcept { free(); }
 
     /*─······································································─*/
 
@@ -63,15 +64,26 @@ public:
 
     bool  empty() const noexcept { return obj->que.empty(); }
     ulong  size() const noexcept { return obj->que.size (); }
-    void  clear() const noexcept { /*--*/ obj->que.clear(); }
+
+    /*─······································································─*/
+
+    void free() const noexcept {
+        auto x=obj->que.first(); while( x!=nullptr && !obj->que.empty() ){
+        auto y=x->next; if( *x->data.out==0 ){ obj->que.erase(x); } x=y; }
+    }
+
+    void clear() const noexcept { auto x=obj->que.first(); 
+        while( x!=nullptr && !obj->que.empty() ){
+        auto y=x->next; *x->data.out=0; x=y;
+    }}
 
     /*─······································································─*/
 
     void emit( const T& arg, const A&... args ) const noexcept {
         if( obj->skip ){ obj->skip=false; return; } auto x=obj->que.first(); 
-        while( x!=nullptr && !obj->que.empty() ){   auto y=x->next;
-            if( *x->data.out == 0 )        { obj->que.erase(x); }
-          elif( !x->data.clb(arg,args...) ){ obj->que.erase(x); }
+        while( x!=nullptr && !obj->que.empty() ){   auto y=x->next; 
+            if( *x->data.out == 0 )/*----*/{ /*-----------*/ }
+          elif( !x->data.clb(arg,args...) ){ *x->data.out=0; } 
         x=y; }
     }
 

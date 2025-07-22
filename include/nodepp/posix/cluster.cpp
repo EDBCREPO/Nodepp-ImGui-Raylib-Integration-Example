@@ -17,6 +17,8 @@
 namespace nodepp { class cluster_t : public generator_t {
 private:
 
+    void kill() const noexcept { if( is_parent() ){ ::kill( obj->fd, SIGKILL ); } }
+
     using _read_ = generator::file::read;
 
 protected:
@@ -100,19 +102,20 @@ public:
 
     /*─······································································─*/
 
-    void free() const noexcept { 
+    void free() const noexcept {
         
         if( obj->state == -3 && obj.count() > 1 ){ resume(); return; }
-        if( obj->state == -2 ){ return; } close(); obj->state = -2;
+        if( obj->state == -2 ){ return; } obj->state = -2;
+        
         obj->input.close(); obj->output.close();
         obj->error.close();
 
-        if( is_parent() ){ kill(); }
-
-        onResume.clear(); onError.clear();
+        onResume.clear(); onError.clear(); 
         onStop  .clear(); onOpen .clear();
         onData  .clear(); onDout .clear(); 
-        onDerr  .clear(); onClose.emit (); 
+        onDerr  .clear(); /*------------*/
+        
+        onDrain.emit(); onClose.emit(); kill();
 
     }
 
@@ -156,7 +159,6 @@ public:
     void  close() const noexcept { if(obj->state < 0) { return; } obj->state=-1; onDrain.emit(); }
     void   stop() const noexcept { if(obj->state==-3) { return; } obj->state=-3; onStop.emit(); }
     void  flush() const noexcept { writable().flush(); readable().flush(); std_error().flush(); }
-    void   kill() const noexcept { ::kill( obj->fd, SIGKILL ); }
 
     /*─······································································─*/
 

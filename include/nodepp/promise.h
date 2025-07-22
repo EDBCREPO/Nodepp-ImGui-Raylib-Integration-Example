@@ -76,11 +76,18 @@ namespace nodepp { namespace promise {
 /*────────────────────────────────────────────────────────────────────────────*/
 
 namespace nodepp { template< class T, class V > class promise_t { 
+private:
+
+    using REJECT   = function_t<void,V>;
+    using RESOLVE  = function_t<void,T>;
+    using CALLBACK = function_t<void,RESOLVE,REJECT>;
+
 protected:
 
     struct NODE {
-        function_t<void,function_t<void,T>,function_t<void,V>> main_func;
-        void* addr = nullptr; uchar state=0;
+        void* addr = nullptr; 
+        CALLBACK main_func;
+        uchar state=0;
     };  ptr_t<NODE> obj;
 
     event_t<T> onDone; 
@@ -116,7 +123,7 @@ public:
 
     promise_t() noexcept : obj( new NODE ) {}
    ~promise_t() noexcept { if( obj.count()>1 ){ return; } resolve(); }
-    promise_t( const decltype(NODE::main_func)& cb ) noexcept : obj( new NODE ) { obj->main_func=cb; }
+    promise_t( const CALLBACK& cb ) noexcept : obj( new NODE ) { obj->main_func=cb; }
 
 };}
 

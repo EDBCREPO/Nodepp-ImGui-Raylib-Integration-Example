@@ -16,6 +16,11 @@
 namespace nodepp { class cluster_t : public generator_t {
 private:
 
+    void kill() const noexcept { if( is_parent() ){ 
+        ::CloseHandle( obj->pi.hProcess ); 
+        ::CloseHandle( obj->pi.hThread ); 
+    }}
+
     using _read_ = generator::file::read;
 
 protected:
@@ -107,16 +112,17 @@ public:
     void free() const noexcept {
         
         if( obj->state == -3 && obj.count() > 1 ){ resume(); return; }
-        if( obj->state == -2 ){ return; } close(); obj->state = -2;
-            obj->input.close(); obj->output.close();
-            obj->error.close();
-
-        if( is_parent() ){ kill(); }
+        if( obj->state == -2 ){ return; }
+        
+        obj->input.close(); obj->output.close();
+        obj->error.close();
 
         onResume.clear(); onError.clear(); 
         onStop  .clear(); onOpen .clear();
         onData  .clear(); onDout .clear(); 
-        onDerr  .clear(); onClose.emit ();
+        onDerr  .clear(); /*------------*/
+        
+        obj->state = -2; kill(); onDrain.emit(); onClose.emit();
         
     }
 
@@ -155,8 +161,7 @@ public:
     int  get_fd()       const noexcept { return obj->fd; }
 
     /*─······································································─*/
-
-    void   kill() const noexcept { ::CloseHandle( obj->pi.hProcess ); ::CloseHandle( obj->pi.hThread ); }
+    
     void resume() const noexcept { if(obj->state== 0) { return; } obj->state= 0; onResume.emit(); }
     void  close() const noexcept { if(obj->state < 0) { return; } obj->state=-1; onDrain.emit(); }
     void   stop() const noexcept { if(obj->state==-3) { return; } obj->state=-3; onStop.emit(); }

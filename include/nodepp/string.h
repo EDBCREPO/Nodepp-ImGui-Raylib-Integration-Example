@@ -422,35 +422,32 @@ public:
     /*─······································································─*/
 
     string_t to_capital_case() const noexcept {
-        auto out=string::buffer( size() );
+        auto out=string::buffer( size() ); bool b=1;
         auto y=out.begin(); auto x=begin();
-        bool b=1; while( x != end() ){
-           if( string::is_alpha(*x) && b==1 ){ *y=string::to_upper(*x); b=0; continue; }
+        while( x != end() ){
+           if( string::is_alpha(*x) && b==1 ){ *y=string::to_upper(*x); b=0; goto DONE; }
            if(!string::is_alpha(*x) ){ b =1;}  *y=string::to_lower(*x);
-        ++x; ++y; } return out;
+        DONE:; ++x; ++y; } return out;
     }
 
     string_t to_slugify() const noexcept {
-        auto out=string::buffer( size() ); ulong z=0;
-        auto y=out.begin(); auto x=begin();
-        bool b=1; while( x != end() ){ 
-              if (!string::is_alnum(*x) ){ continue; }
+        auto out=string::buffer( size() ); ulong z=1;
+        auto y=out.begin(); auto x=begin(); while( x != end() ){ 
+              if (!string::is_alnum(*x) ){ goto DONE; }
             else { *y = string::to_lower(*x); ++z; }
-        ++x; ++y; } return string_t( &out, z );
+        DONE:; ++x; ++y; } return string_t( &out,z );
     }
 
     string_t to_lower_case() const noexcept {
         auto out=string::buffer( size() );
-        auto y=out.begin(); auto x=begin();
-        bool b=1; while( x != end() ){ 
+        auto y=out.begin(); auto x=begin(); while( x != end() ){ 
             *y=string::to_lower(*x); 
         ++x; ++y; } return out;
     }
 
     string_t to_upper_case() const noexcept {
         auto out=string::buffer( size() );
-        auto y=out.begin(); auto x=begin();
-        bool b=1; while( x != end() ){ 
+        auto y=out.begin(); auto x=begin(); while( x != end() ){ 
             *y=string::to_upper(*x); 
         ++x; ++y; } return out;
     }

@@ -133,7 +133,7 @@ public:
 
     template< class... O >
     void append( const T& argc, const O&... args ) const noexcept {
-         iterator::map([&](U arg){ append(arg); }, argc, args... );
+         iterator::map([&](T arg){ append(arg); }, argc, args... );
     }
 
     void append( const T& pair ) const noexcept {

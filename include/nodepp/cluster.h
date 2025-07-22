@@ -14,7 +14,7 @@
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-#if   _KERNEL_ == NODEPP_KERNEL_WINDOWS
+#if _KERNEL_ == NODEPP_KERNEL_WINDOWS
     
     #include "fs.h"
     #include "worker.h"
