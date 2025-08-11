@@ -19,6 +19,13 @@ This project demonstrates a robust integration of Nodepp for asynchronous operat
 ### Garbage Collection: 
 - Utilizes Nodepp's ptr_t smart pointer for simplified memory management, abstracting away manual memory deallocation.
 
+# Dependencies
+```bash
+Nodepp:  https://github.com/NodeppOfficial/nodepp
+Raylib:  https://github.com/raysan5/raylib
+rlImGui: https://github.com/raylib-extras/rlImGui
+```
+
 # Building
 ```bash
 g++ ./include/imgui/imgui.cpp         \
