@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Define Lib Folder
+export LD_LIBRARY_PATH=./lib:$LD_LIBRARY_PATH
+
 # Define source directories
 IMGUI_DIR="./include/imgui"
 
@@ -20,7 +23,7 @@ IMGUI_CPP_SOURCES=(
 
 INCLUDE_DIRS="-I./include"
 LIB_DIRS="-L./lib -L./build"
-LIBS="-lraylib" # Raylib is a dependency for rlImGui, so link it into the shared lib
+LIBS="-lraylib -lpthread -ldl"
 
 OBJECT_FILES=()
 

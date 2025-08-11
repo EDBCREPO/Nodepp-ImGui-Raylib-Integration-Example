@@ -32,15 +32,15 @@ using namespace nodepp;
 
 class imWindow_t { public:
 
-    using CALLBACK = function_t<int>;
+    using NODE_CLB = function_t<int>;
 
     struct NODE {
-        CALLBACK callback;
+        NODE_CLB callback;
         string_t name;
         bool state;
     };  ptr_t<NODE> obj;
 
-    imWindow_t( string_t name, CALLBACK callback ) : obj( new NODE() ){
+    imWindow_t( string_t name, NODE_CLB callback ) : obj( new NODE() ){
         obj->state = true; obj->callback = callback; obj->name = name;
     }
 
@@ -80,7 +80,7 @@ int main( int argc, char** argv ) {
     /*─······································································─*/
 
     RL::SetConfigFlags( RL::FLAG_WINDOW_RESIZABLE );
-    RL::InitWindow( 800, 600, "raylib - imgui"); 
+    RL::InitWindow( 800, 600, "raylib - imgui");
     RL::SetTargetFPS( 60 );
     RL::rlImGuiSetup(true);
 
@@ -107,10 +107,10 @@ int main( int argc, char** argv ) {
         static string_t bff ( 1024, '\0' );
 
 			ImGui::Text( "Hello, world!" );
-        
+
         if( ImGui::Button("Close Window") )
           { console::log("closed"); return -1; }
-        
+
         if( ImGui::Button("Create new window ") )
           { appendWindow(); }
 
@@ -119,7 +119,7 @@ int main( int argc, char** argv ) {
 
         if( ImGui::SliderFloat("float", &f, 0.0f, 1.0f) )
           { console::log( f ); }
-		
+
         return 1;
     }));
 
@@ -140,7 +140,7 @@ int main( int argc, char** argv ) {
         item.map([&]( string_t data ){
             ImGui::Text( data.get() );
         });
-		
+
         return 1;
     }));
 
@@ -151,15 +151,15 @@ int main( int argc, char** argv ) {
 
         do{ auto args   = fetch_t();
             args.method = "GET";
-            args.url    = "http://ip-api.com/json";
-            
-            args.headers= header_t({ 
+            args.url    = "http://ip-api.com/json/24.48.0.1";
+
+            args.headers= header_t({
                 { "Host", url::host( args.url ) }
             });
 
             http::fetch( args )
 
-            .then([=]( http_t cli ){ 
+            .then([=]( http_t cli ){
                 auto data = json::parse( cli.read() );
                 *api_response  = string::format( "city   : %s \n", data["city"].as<string_t>().get() );
                 *api_response += string::format( "query  : %s \n", data["query"].as<string_t>().get() );
@@ -180,8 +180,8 @@ int main( int argc, char** argv ) {
 
     process::add( coroutine::add( COROUTINE(){
     coBegin
- 
-        RL::BeginDrawing(); 
+
+        RL::BeginDrawing();
         RL::ClearBackground( RL::RAYWHITE );
         RL::rlImGuiBegin();
 
@@ -190,15 +190,15 @@ int main( int argc, char** argv ) {
            if( x->data.emit()==-1 ){ list.erase(x); }
         x=y; }} while(0);
 
-        RL::rlImGuiEnd(); 
+        RL::rlImGuiEnd();
         RL::EndDrawing();
- 
+
         coGoto(0); coFinish
     }));
 
     /*─······································································─*/
 
-    while( !RL::WindowShouldClose() ) 
+    while( !RL::WindowShouldClose() )
          { process::next(); }
 
     /*─······································································─*/
