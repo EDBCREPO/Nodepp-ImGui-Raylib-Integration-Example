@@ -28,6 +28,19 @@ rlImGui: https://github.com/raylib-extras/rlImGui
 
 # Building
 ```bash
+- Windows
+g++ ./include/imgui/imgui.cpp         \
+    ./include/imgui/imgui_demo.cpp    \
+    ./include/imgui/imgui_draw.cpp    \
+    ./include/imgui/imgui_tables.cpp  \
+    ./include/imgui/imgui_widgets.cpp \
+    ./include/imgui/rlImGui.cpp       \
+    main.cpp -o main.exe              \
+    -L./lib -I./include -lraylib -lws2_32 -lwinmm -lgdi32
+    
+./main.exe
+
+-Linux
 g++ ./include/imgui/imgui.cpp         \
     ./include/imgui/imgui_demo.cpp    \
     ./include/imgui/imgui_draw.cpp    \
