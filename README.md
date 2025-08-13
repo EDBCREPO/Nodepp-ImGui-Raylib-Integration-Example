@@ -39,7 +39,9 @@ g++ ./include/imgui/imgui.cpp         \
     -L./lib -I./include -lraylib -lws2_32 -lwinmm -lgdi32
     
 ./main.exe
+```
 
+```bash
 -Linux
 g++ ./include/imgui/imgui.cpp         \
     ./include/imgui/imgui_demo.cpp    \
