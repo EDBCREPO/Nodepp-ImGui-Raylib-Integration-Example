@@ -16,24 +16,80 @@
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-namespace nodepp { using KPOLLFD = struct kevent; class poll_t {
+namespace nodepp { enum POLL_STATE {
+    READ = 1, WRITE = 2, DUPLEX = 3
+};}
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
+namespace nodepp { using KPOLLFD = struct kevent; }
+namespace nodepp { class poll_t : public generator_t {
+private:
+
+    using NODE_CLB = function_t<int>;
+    using DATA     = type::pair<int,NODE_CLB>;
+
+    struct waiter { bool blk; bool out; }; 
+    
 protected:
 
     struct NODE {
-        int        len,pd;
+        queue_t<DATA>  queue;
+        int      y,len,pd;
         ptr_t<KPOLLFD> ev;
     };  ptr_t<NODE>   obj;
 
-    using T = function_t< void, void*, int, int >;
+    /*─······································································─*/
+    
+    bool listen( const int fd, const int flags, void* ptr ) noexcept { bool x=1, y=1;
+        if  ( flags & POLL_STATE::READ  ){ x = append( fd, EVFILT_READ , ptr )!=-1; }
+        elif( flags & POLL_STATE::WRITE ){ y = append( fd, EVFILT_WRITE, ptr )!=-1; }
+        return ( x && y );
+    }
 
-    int invoke( KPOLLFD x, int fd, int state ) const noexcept {
-        if( x.data.ptr == nullptr ){ return -1; }
-        type::cast<T>(x.data.ptr)->( x.data.ptr, fd, state );
+    int append( const int fd, const int flags, void* ptr ) const noexcept {
+        KPOLLFD event; /*--------------------------------------*/
+        EV_SET( &event, fd, flags, EV_ADD|EV_ENABLE, 0, 0, ptr );
+        return kevent( obj->pd, &event, 1, NULL, 0, NULL );
+    }
+
+    int remove( void* ptr ) const noexcept {
+        auto pt = obj->queue.as( ptr ); KPOLLFD event;
+        auto fd = pt->data.first; obj->queue.erase(pt);
+        EV_SET( &event, fd, 0, EV_DELETE|EV_DISABLE, 0, 0, NULL );
+        return kevent( obj->pd, &event, 1, NULL, 0, NULL );
+    }
+
+    /*─······································································─*/
+
+    template< class T, class... V >
+    void* push( int fd, T cb, const V&... arg ) const noexcept {
+
+        ptr_t<waiter> tsk = new waiter();
+        auto clb=type::bind( cb );
+        tsk->blk=0; tsk->out=1; 
+
+        obj->queue.push({ fd, [=](){
+            if( tsk->out==0 ){ return -1; }
+            if( tsk->blk==1 ){ return  1; } 
+                tsk->blk =1; int rs=(*clb)( arg... );
+            if( clb.null () ){ return -1; }  
+                tsk->blk =0; return !tsk->out ? -1 : rs;
+        } }); 
+        
+        return (void*) &tsk->out;
+    }
+
+    /*─······································································─*/
+
+    void clear( void* address ){
+         if( address == nullptr ){ return; }
+         memset( address, 0, sizeof(bool) );
     }
 
 public:
 
-   ~poll_t() noexcept { if( obj.count() > 1 ){ return; } close( obj->pd ); }
+    virtual ~poll_t() noexcept { if( obj.count() > 1 ){ return; } close( obj->pd ); }
 
     poll_t() : obj( new NODE() ) {
         obj->pd = kqueue(0); if( obj->pd==-1 )
@@ -43,44 +99,46 @@ public:
 
     /*─······································································─*/
 
-    bool push_write ( const int& fd, T* cb ) noexcept { return append( fd, EVFILT_WRITE | EV_CLEAR, cb ); }
-    bool push_read  ( const int& fd, T* cb ) noexcept { return append( fd, EVFILT_READ  | EV_CLEAR, cb ); }
-    bool push_duplex( const int& fd, T* cb ) noexcept { 
-         bool success_write= push_write( fd, cb );
-         bool success_read = push_read ( fd, cb );
-         return success_read && success_write;
-    }
+    void clear() const noexcept { /*--*/ obj->queue.clear(); }
+
+    ulong size() const noexcept { return obj->queue.size (); }
+
+    bool empty() const noexcept { return obj->queue.empty(); }
 
     /*─······································································─*/
 
-    int next() noexcept {
-
-        if((obj->len=kevent( obj->pd, NULL, 0, &obj->ev, obj->ev.size(), 0 ))<=0 ){ return -2; }
-
-        auto y=0; while( y < obj->len ){ auto x = obj->ev[y];
-            if( x.flags & (EV_ERROR|EV_EOF) )
-              { invoke( x, x.data.fd, 0x00 ); }
-            if( x.filter& EVFILT_WRITE )
-              { invoke( x, x.data.fd, 0x02 ); }
-            if( x.filter& EVFILT_READ  )
-              { invoke( x, x.data.fd, 0x01 ); }
-        ++y; }
-
-    return obj->len; }
+    template< class T, class U, class... W >
+    void* add( T& inp, uchar imode, U cb, const W&... args ) noexcept {
+    auto addr = push( inp.get_fd(), cb, args... ); /*----------*/
+    bool    x = listen( inp.get_fd(), imode, obj->queue.last() );
+    if( !x ){ obj->queue.pop(); } return addr; }
 
     /*─······································································─*/
 
-    int append( const int& fd, const int flags, T* cb ) const noexcept {
-        KPOLLFD event; event.udata = cb;
-        EV_SET( &event, fd, flags, EV_ADD|EV_ENABLE, 0, 0, NULL );
-        return kevent( obj->pd, &event, 1, NULL, 0, NULL );
-    }
+    inline int next() noexcept {
+    coBegin
 
-    int remove( const int& fd ) const noexcept { 
-        KPOLLFD event; event.udata = cb;
-        EV_SET( &event, fd, 0, EV_DELETE|EV_DISABLE, 0, 0, NULL );
-        return kevent( obj->pd, &event, 1, NULL, 0, NULL );
-    }
+        if((obj->len=kevent( obj->pd, NULL, 0, &obj->ev, obj->ev.size(), 0 ))<=0 )
+          { coEnd; } obj->y=0; coNext;
+
+        while( obj->y < obj->len ){ do { 
+            
+            auto x = obj->ev[ obj->y ];
+            auto y = obj->queue.as( x.udata );
+
+            if( x.flags & ( EV_ERROR    | EV_EOF       ) &&
+              ( x.filter& ( EVFILT_READ | EVFILT_WRITE ))==0
+            ) { remove( y ); ++obj->y; break; }
+            
+            switch( type::cast<NODE_CLB>( y->data.second ).emit() ){
+                case -1: remove( y ); ++obj->y; break;
+                case  1: /*--------*/ ++obj->y; break;
+                default: /*------------------*/ break;
+            }
+
+        } while(0); coNext; }
+
+    coFinish }
 
 };}
 

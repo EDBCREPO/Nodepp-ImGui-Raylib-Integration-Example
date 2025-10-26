@@ -29,13 +29,26 @@ protected:
         queue_t<T>  queue;
     };  ptr_t<NODE> obj;
 
-public:
+protected:
 
-    template< class... O >
-    map_t( const T& args, const O&... argc ) noexcept : obj(new NODE()) {
-        obj->table = ptr_t<LIST>( HASH_TABLE_SIZE );
-        append( args, argc... );
+    void append( const T& pair ) const noexcept {
+
+        auto  key = string::to_string(pair.first);
+        ulong idx = encoder::hash::get(key);
+        auto  n   = obj->table[idx].first();
+
+        while( n!=nullptr ){
+        auto itm = obj->queue.as(n->data); if( itm==nullptr ){ break; }
+        if ( itm->data.first == pair.first ){
+             itm->data.second = pair.second;
+        return; } n = n->next; }
+
+        obj->queue.push( pair );
+        obj->table[idx].push( obj->queue.last() );
+
     }
+
+public:
 
     template< ulong N >
     map_t( const T (&args) [N] ) noexcept : obj(new NODE()) {
@@ -46,6 +59,8 @@ public:
     map_t() noexcept : obj(new NODE()) {
         obj->table = ptr_t<LIST>( HASH_TABLE_SIZE );
     }
+
+    virtual ~map_t() noexcept {}
 
     /*─······································································─*/
 
@@ -104,11 +119,6 @@ public:
 
     /*─······································································─*/
 
-    template< class... O >
-    void clear( const U& argc, const O&... args ) const noexcept {
-         iterator::map([&](U arg){ erase(arg); }, argc, args... );
-    }
-
     void erase( const U& id ) const noexcept {
 
         auto  key = string::to_string( id );
@@ -129,29 +139,7 @@ public:
         obj->queue.erase();
     }
 
-    /*─······································································─*/
-
-    template< class... O >
-    void append( const T& argc, const O&... args ) const noexcept {
-         iterator::map([&](U arg){ append(arg); }, argc, args... );
-    }
-
-    void append( const T& pair ) const noexcept {
-
-        auto  key = string::to_string(pair.first);
-        ulong idx = encoder::hash::get(key);
-        auto  n   = obj->table[idx].first();
-
-        while( n!=nullptr ){
-        auto itm = obj->queue.as(n->data); if( itm==nullptr ){ break; }
-        if ( itm->data.first == pair.first ){
-             itm->data.second = pair.second;
-        return; } n = n->next; }
-
-        obj->queue.push( pair );
-        obj->table[idx].push( obj->queue.last() );
-
-    }
+    void clear() const noexcept { erase(); }
 
 };}
 

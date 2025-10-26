@@ -50,7 +50,7 @@ public:
     
     /*─······································································─*/
     
-   ~zlib_t() noexcept { if( obj.count()>1 || obj->state==0 ){ return; } free(); }
+    virtual ~zlib_t() noexcept { if( obj.count()>1 || obj->state==0 ){ return; } free(); }
 
     zlib_t( int type=0, ulong size=CHUNK_SIZE ) noexcept : obj( new NODE ) { 
         obj->bff  = ptr_t<char>( size ); 
@@ -138,14 +138,68 @@ public:
 
 namespace nodepp { namespace zlib { namespace inflate {
 
+    string_t get( const string_t& data ){ return zlib_t(15).update_inflate(data,Z_FINISH); }
+
     template< class... T >
     void pipe( const T&... file ){ 
-        generator::zlib::pipe_inflate task; auto zlib = zlib_t(-15);
-        process::add( task, zlib, file... );
+         generator::zlib::pipe_inflate task; auto zlib = zlib_t(15);
+         process::foop( task, zlib, file... );
+    }
+
+    template< class V, class... T >
+    string_t await( const V& file, const T&... args ){ string_t out;
+         generator::zlib::pipe_inflate task; auto zlib =zlib_t(15);
+         file.onData([&]( string_t data ){ out += data; });
+         process::await( task, zlib, file, args... );
+         return out;
     }
     
-    string_t get( const string_t& data ){ 
-        return zlib_t(-15).update_inflate(data,Z_FINISH); 
+    zlib_t get(){ return zlib_t(15); }
+
+}}}
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
+namespace nodepp { namespace zlib { namespace deflate {
+
+    string_t get( const string_t& data ){ return zlib_t(15).update_deflate(data,Z_FINISH); }
+
+    template< class... T >
+    void pipe( const T&... file ){
+         generator::zlib::pipe_deflate task; auto zlib = zlib_t(15);
+         process::foop( task, zlib, file... );
+    }
+
+    template< class V, class... T >
+    string_t await( const V& file, const T&... args ){ string_t out;
+         generator::zlib::pipe_deflate task; auto zlib =zlib_t(15);
+         file.onData([&]( string_t data ){ out += data; });
+         process::await( task, zlib, file, args... );
+         return out;
+    }
+    
+    zlib_t get(){ return zlib_t(15); }
+
+}}}
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
+namespace nodepp { namespace zlib { namespace raw_inflate {
+
+    string_t get( const string_t& data ){ return zlib_t(-15).update_inflate(data,Z_FINISH); }
+
+    template< class... T >
+    void pipe( const T&... file ){ 
+         generator::zlib::pipe_inflate task; auto zlib = zlib_t(-15);
+         process::foop( task, zlib, file... );
+    }
+
+    template< class V, class... T >
+    string_t await( const V& file, const T&... args ){ string_t out;
+         generator::zlib::pipe_inflate task; auto zlib =zlib_t(-15);
+         file.onData([&]( string_t data ){ out += data; });
+         process::await( task, zlib, file, args... );
+         return out;
     }
     
     zlib_t get(){ return zlib_t(-15); }
@@ -154,17 +208,23 @@ namespace nodepp { namespace zlib { namespace inflate {
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-namespace nodepp { namespace zlib { namespace deflate {
+namespace nodepp { namespace zlib { namespace raw_deflate {
+
+    string_t get( const string_t& data ){ return zlib_t(-15).update_deflate(data,Z_FINISH); }
 
     template< class... T >
     void pipe( const T&... file ){
-        generator::zlib::pipe_deflate task; auto zlib = zlib_t(-15);
-        process::add( task, zlib, file... );
+         generator::zlib::pipe_deflate task; auto zlib = zlib_t(-15);
+         process::foop( task, zlib, file... );
     }
 
-    string_t get( const string_t& data ){ 
-        return zlib_t(-15).update_deflate(data,Z_FINISH); 
-    } 
+    template< class V, class... T >
+    string_t await( const V& file, const T&... args ){ string_t out;
+         generator::zlib::pipe_deflate task; auto zlib =zlib_t(-15);
+         file.onData([&]( string_t data ){ out += data; });
+         process::await( task, zlib, file, args... );
+         return out;
+    }
     
     zlib_t get(){ return zlib_t(-15); }
 
@@ -174,14 +234,20 @@ namespace nodepp { namespace zlib { namespace deflate {
 
 namespace nodepp { namespace zlib { namespace gunzip {
 
+    string_t get( const string_t& data ){ return zlib_t(15|32).update_inflate(data,Z_FINISH); }
+
     template< class... T >
     void pipe( const T&... file ){
-        generator::zlib::pipe_inflate arg; auto zlib = zlib_t(15|32);
-        process::add( arg, zlib, file... );
+         generator::zlib::pipe_inflate arg; auto zlib = zlib_t(15|32);
+         process::foop( arg, zlib, file... );
     }
 
-    string_t get( const string_t& data ){ 
-        return zlib_t(15|32).update_inflate(data,Z_FINISH); 
+    template< class V, class... T >
+    string_t await( const V& file, const T&... args ){ string_t out;
+         generator::zlib::pipe_inflate task;auto zlib=zlib_t(15|32);
+         file.onData([&]( string_t data ){ out += data; });
+         process::await( task, zlib, file, args... );
+         return out;
     }
     
     zlib_t get(){ return zlib_t(15|32); }
@@ -192,14 +258,20 @@ namespace nodepp { namespace zlib { namespace gunzip {
 
 namespace nodepp { namespace zlib { namespace gzip {
 
+    string_t get( const string_t& data ){ return zlib_t(15|16).update_deflate(data,Z_FINISH); }
+
     template< class... T >
     void pipe( const T&... file ){
-        generator::zlib::pipe_deflate task; auto zlib = zlib_t(15|16);
-        process::add( task, zlib, file... );
+         generator::zlib::pipe_deflate task; auto zlib = zlib_t(15|16);
+         process::foop( task, zlib, file... );
     }
 
-    string_t get( const string_t& data ){ 
-        return zlib_t(15|16).update_deflate(data,Z_FINISH); 
+    template< class V, class... T >
+    string_t await( const V& file, const T&... args ){ string_t out;
+         generator::zlib::pipe_deflate task;auto zlib=zlib_t(15|16);
+         file.onData([&]( string_t data ){ out += data; });
+         process::await( task, zlib, file, args... );
+         return out;
     }
     
     zlib_t get(){ return zlib_t(15|16); }

@@ -10,6 +10,7 @@
 /*────────────────────────────────────────────────────────────────────────────*/
 
 #pragma once
+
 #include <ws2tcpip.h>
 #include <winsock2.h>
 #include <winsock.h>
@@ -34,6 +35,7 @@ namespace nodepp {
 
 struct agent_t {
     bool  reuse_address = 1;
+    bool  no_delay_mode = 0;
     uint  conn_timeout  = 0;//10000 ;
     uint  recv_timeout  = 0;//120000;
     uint  send_timeout  = 0;//120000;
@@ -46,6 +48,32 @@ struct agent_t {
 class socket_t {
 protected:
 
+    void kill() const noexcept {
+        obj->state |= FILE_STATE::KILL;
+        ::shutdown( obj->fd, SD_BOTH ); 
+        ::closesocket( obj->fd );
+    }
+
+    bool is_state( uchar value ) const noexcept {
+        if( obj->state & value ){ return true; }
+    return false; }
+
+    void set_state( uchar value ) const noexcept {
+    if( obj->state & KILL ){ return; }
+        obj->state = value;
+    }
+
+    enum FILE_STATE {
+        UNKNOWN = 0b00000000,
+        OPEN    = 0b00000001,
+        CLOSE   = 0b00000010,
+        KILL    = 0b00000100,
+        REUSE   = 0b00001000,
+        DISABLE = 0b00001110
+    };
+
+protected:
+
     using TIMEVAL     = struct timeval;
     using SOCKADDR    = struct sockaddr;
     using SOCKADDR_IN = struct sockaddr_in;
@@ -54,19 +82,20 @@ protected:
 
         ulong recv_timeout=0; ulong send_timeout=0;
         ulong conn_timeout=0;
+
         SOCKADDR server_addr, client_addr;
         int addrlen; bool srv=0; int len;
         int feof = 1;
 
+        uchar        state    = FILE_STATE::OPEN;
         SOCKET       fd       = INVALID_SOCKET;
         ulong        range[2] = { 0, 0 };
         bool         keep     = false;
-        int          state    = 0;
         ptr_t<char>  buffer;
         string_t     borrow;
 
         limit::probe_t limit_probe;
-    };  ptr_t<NODE> obj = new NODE();
+    };  ptr_t<NODE> obj;
 
     /*─······································································─*/
 
@@ -139,6 +168,11 @@ public:
 
     /*─······································································─*/
 
+    int set_no_delay_mode( uint en ) const noexcept { int c; if( IPPROTO != IPPROTO_TCP ){ return -1; }
+        while( is_blocked( c=setsockopt( obj->fd, IPPROTO, TCP_NODELAY, (char*)&en, sizeof(en) ) ) )
+             { process::next(); } return c;
+    }
+
     int set_recv_buff( uint en ) const noexcept { int c;
         while( is_blocked( c=setsockopt( obj->fd, SOL_SOCKET, SO_RCVBUF, (char*)&en, sizeof(en) ) ) )
              { process::next(); } return c;
@@ -185,6 +219,11 @@ public:
              { process::next(); } return c;
     }
 #endif
+
+    int get_no_delay_mode() const noexcept { int c, en; socklen_t size = sizeof(en);
+        while( is_blocked( c=getsockopt( obj->fd, IPPROTO, TCP_NODELAY, (char*)&en, &size ) ) )
+             { process::next(); } return c==0 ? en : c;
+    }
 
     int get_error() const noexcept { int c, en; socklen_t size = sizeof(en);
         while( is_blocked( c=getsockopt(obj->fd, SOL_SOCKET, SO_ERROR, (char*)&en, &size) ) )
@@ -275,32 +314,31 @@ public:
 
     /*─······································································─*/
 
-    bool     is_closed() const noexcept { return obj->state <  0 ||  is_feof() || obj->fd == INVALID_SOCKET; }
-    bool       is_feof() const noexcept { return obj->feof  <= 0 && obj->feof  != -2; }
-    bool  is_available() const noexcept { return obj->state >= 0 && !is_closed(); }
+    bool     is_closed() const noexcept { return is_state(FILE_STATE::DISABLE) || is_feof() || obj->fd==INVALID_HANDLE_VALUE; }
+    bool       is_feof() const noexcept { return obj->feof <= 0 && obj->feof != -2; }
+    bool  is_available() const noexcept { return !is_closed(); }
     bool is_persistent() const noexcept { return obj->keep; }
     bool     is_server() const noexcept { return obj->srv;  }
 
     /*─······································································─*/
 
-    void  resume() const noexcept { if(obj->state== 0) { return; } obj->state= 0; onResume .emit(); }
-    void    stop() const noexcept { if(obj->state==-3) { return; } obj->state=-3; onStop   .emit(); }
-    void   reset() const noexcept { if(obj->state!=-2) { return; } resume(); pos(0); }
+    void  resume() const noexcept { if(is_state(FILE_STATE::OPEN )){ return; } set_state(FILE_STATE::OPEN ); onResume.emit(); }
+    void    stop() const noexcept { if(is_state(FILE_STATE::REUSE)){ return; } set_state(FILE_STATE::REUSE); onStop  .emit(); }
+    void   reset() const noexcept { if(is_state(FILE_STATE::KILL )){ return; } resume(); pos(0); }
     void   flush() const noexcept { obj->buffer.fill(0); }
 
     /*─······································································─*/
 
-    void close() const noexcept {
-        if( obj->state< 0 ){ return; }
-        if( obj->keep== 1 ){ stop(); goto DONE; }
-            obj->state=-1; DONE:; onDrain.emit();
-    }
+    void close() const noexcept { 
+        if( is_state(FILE_STATE::DISABLE) ){ return; }
+        if( obj->keep==1 ){ stop(); goto DONE; }
+         set_state( FILE_STATE::CLOSE ); DONE:; 
+    onDrain.emit(); if( is_feof() ){ free(); } }
 
     /*─······································································─*/
 
     SOCKET    get_fd() const noexcept { return obj == nullptr ? INVALID_SOCKET : obj->fd;    }
     ulong* get_range() const noexcept { return obj == nullptr ?        nullptr : obj->range; }
-    int    get_state() const noexcept { return obj == nullptr ?             -1 : obj->state; }
 
     /*─······································································─*/
 
@@ -327,6 +365,7 @@ public:
     /*─······································································─*/
 
     void set_sockopt( agent_t opt ) const noexcept {
+        set_no_delay_mode( opt.no_delay_mode );
         set_reuse_address( opt.reuse_address );
         set_conn_timeout ( opt.conn_timeout  );
         set_recv_timeout ( opt.recv_timeout  );
@@ -356,30 +395,26 @@ public:
 
     /*─······································································─*/
 
-    virtual ~socket_t() noexcept { if( obj.count() > 1 ){ return; } free(); }
-
-    /*─······································································─*/
-
-    socket_t() noexcept { _socket_::start_device(); }
-
-    socket_t( SOCKET fd, ulong _size=CHUNK_SIZE ){ _socket_::start_device();
+    socket_t( SOCKET fd, ulong _size=CHUNK_SIZE ) : obj( new NODE() ) { _socket_::start_device();
         if( fd == INVALID_SOCKET ){ throw except_t("Such Socket has an Invalid fd"); }
         obj->fd = fd; set_nonbloking_mode(); set_buffer_size(_size);
-        if(!limit::fileno_ready() ){ free(); throw except_t(" max fileno reached "); }
     }
+
+    socket_t() noexcept : obj( new NODE() ) {}
+
+    virtual ~socket_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     /*─······································································─*/
 
     virtual void free() const noexcept {
 
-        if( obj->state == -3 && obj.count() > 1 ){ resume(); return; }
-        if( obj->state == -2 ){ return; } close(); obj->state = -2;
-        ::shutdown(obj->fd,SD_BOTH); closesocket(obj->fd);
+        if( is_state(FILE_STATE::REUSE) && obj.count() > 1 ){ resume(); return; }
+        if( is_state(FILE_STATE::KILL ) ){ return; } close(); kill();
 
         onUnpipe.clear(); onResume.clear();
         onStop  .clear(); onError .clear();
         onOpen  .clear(); onPipe  .clear();
-        onData  .clear(); onClose .emit ();
+        onData  .clear(); /*-------------*/ onClose.emit();
 
     }
 
@@ -417,21 +452,21 @@ public:
 
     /*─······································································─*/
 
-    int _connect() const noexcept { int c=0;
+    inline int _connect() const noexcept { int c=0;
         if( process::millis() > get_conn_timeout() || obj->srv == 1 ){ return -1; }
         return is_blocked( c=::connect( obj->fd, &obj->server_addr, obj->addrlen ) ) ? -2 : c>=0 ? 1: -1;
     }
 
-    int _accept() const noexcept { int c=0; if( obj->srv == 0 ){ return -1; }
+    inline int _accept() const noexcept { int c=0; if( obj->srv == 0 ){ return -1; }
         return is_blocked( c=::accept( obj->fd, &obj->server_addr, &obj->addrlen ) ) ? -2 : c;
     }
 
-    int _bind() const noexcept {
+    inline int _bind() const noexcept {
         if( process::millis() > get_conn_timeout() ){ return -1; } int c=0; obj->srv = 1;
         return is_blocked( c=::bind( obj->fd, &obj->server_addr, obj->addrlen ) ) ? -2 : c;
     }
 
-    int _listen() const noexcept { int c = 0;
+    inline int _listen() const noexcept { int c = 0;
         if( process::millis() > get_conn_timeout() || obj->srv == 0 ){ return -1; }
         return is_blocked( c=::listen( obj->fd, limit::get_soft_fileno() ) ) ? -2 : c;
     }
@@ -504,32 +539,32 @@ public:
 
     virtual int __read( char* bf, const ulong& sx ) const noexcept {
         if ( process::millis() > get_recv_timeout() || is_closed() )
-           { close(); return -1; } if ( sx==0 ) { return 0; }
+           { return -1; } if ( sx==0 ) { return 0; }
         if ( SOCK != SOCK_DGRAM ){
             obj->feof = ::recv( obj->fd, bf, sx, 0 );
             obj->feof = is_blocked(obj->feof)? -2 : obj->feof;
-            if( obj->feof <= 0 && obj->feof != -2 ){ close(); }
+            if( obj->feof <= 0 && obj->feof != -2 ){ return -1; }
             return obj->feof;
         } else { SOCKADDR* cli = obj->srv==1 ? &obj->client_addr : &obj->server_addr;
             obj->feof = ::recvfrom( obj->fd, bf, sx, 0, cli, &obj->len );
             obj->feof = is_blocked(obj->feof)? -2 : obj->feof;
-            if( obj->feof <= 0 && obj->feof != -2 ){ close(); }
+            if( obj->feof <= 0 && obj->feof != -2 ){ return -1; }
             return obj->feof;
         }   return -1;
     }
 
     virtual int __write( char* bf, const ulong& sx ) const noexcept {
         if ( process::millis() > get_send_timeout() || is_closed() )
-           { close(); return -1; } if ( sx==0 ) { return 0; }
+           { return -1; } if ( sx==0 ) { return 0; }
         if ( SOCK != SOCK_DGRAM ){
             obj->feof = ::send( obj->fd, bf, sx, 0 );
             obj->feof = is_blocked(obj->feof)? -2 : obj->feof;
-            if( obj->feof <= 0 && obj->feof != -2 ){ close(); }
+            if( obj->feof <= 0 && obj->feof != -2 ){ return -1; }
             return obj->feof;
         } else { SOCKADDR* cli = obj->srv==1 ? &obj->client_addr : &obj->server_addr;
             obj->feof = ::sendto( obj->fd, bf, sx, 0, cli, obj->len );
             obj->feof = is_blocked(obj->feof)? -2 : obj->feof;
-            if( obj->feof <= 0 && obj->feof != -2 ){ close(); }
+            if( obj->feof <= 0 && obj->feof != -2 ){ return -1; }
             return obj->feof;
         }   return -1;
     }
@@ -539,7 +574,7 @@ public:
     bool _write_( char* bf, const ulong& sx, ulong& sy ) const noexcept {
         if( sx==0 || is_closed() ){ return 1; } while( sy < sx ) {
             int c = __write( bf+sy, sx-sy );
-            if( c <= 0 && c != -2 )          { return 0; }
+            if( c <= 0 && c != -2 ) /*----*/ { return 0; }
             if( c >  0 ){ sy += c; continue; } return 1;
         }   return 0;
     }
@@ -547,7 +582,7 @@ public:
     bool _read_( char* bf, const ulong& sx, ulong& sy ) const noexcept {
         if( sx==0 || is_closed() ){ return 1; } while( sy < sx ) {
             int c = __read( bf+sy, sx-sy );
-            if( c <= 0 && c != -2 )          { return 0; }
+            if( c <= 0 && c != -2 ) /*----*/ { return 0; }
             if( c >  0 ){ sy += c; continue; } return 1;
         }   return 0;
     }

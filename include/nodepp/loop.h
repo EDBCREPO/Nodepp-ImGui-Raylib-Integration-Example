@@ -14,25 +14,27 @@
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-namespace nodepp { class loop_t {
+namespace nodepp { class loop_t : public generator_t {
 private:
 
-    struct waiter { bool blk; bool out; }; 
-    using CALLBACK = function_t<int>;
+    using NODE_CLB = function_t<int>;
+    struct waiter { bool blk; bool out; };
 
 protected:
 
     struct NODE {
-        queue_t<CALLBACK> queue;
+        queue_t<NODE_CLB> queue;
     };  ptr_t<NODE> obj;
 
 public:
+
+    virtual ~loop_t() noexcept { /*-----*/ }
 
     loop_t() noexcept : obj( new NODE() ) {}
 
     /*─······································································─*/
 
-    void clear() const noexcept {        obj->queue.clear(); }
+    void clear() const noexcept { /*--*/ obj->queue.clear(); }
 
     ulong size() const noexcept { return obj->queue.size (); }
 
@@ -40,32 +42,32 @@ public:
 
     /*─······································································─*/
 
-    int emit() const noexcept { auto x = obj->queue.first(); 
-    int y=0; while( x != nullptr ){ auto z = x->next; 
-    if( x->data()==-1 ){ obj->queue.erase(x); x=z; continue; }
-    ++y; x=z; } return y; }
-
-    /*─······································································─*/
-
-    int next() const noexcept { auto x = obj->queue.get(); 
-    if( x==nullptr ){ return -1; }
+    inline int next() noexcept { 
+    coBegin
         
-        switch( x->data() ){
+        if( obj->queue.empty() ) /*-*/ { coEnd; } do {
+        if( obj->queue.get()==nullptr ){ coEnd; }
+
+        auto x = obj->queue.get();
+        auto y = x->data();
+
+        switch( y ){
             case -1: obj->queue.erase(x); break;
             case  1: obj->queue.next();   break;
-            default: /*----------------*/ break;
+            default: /*--------------*/   break;
         } 
-        
-    return x->next==nullptr ? -1 : 1; }
+            
+        return y; } while(0);
+
+    coFinish }
 
     /*─······································································─*/
 
     template< class T, class... V >
-    void* add( T cb, const V&... arg ) const noexcept {
+    inline void* add( T cb, const V&... arg ) const noexcept {
 
-        ptr_t<waiter> tsk = new waiter();
-        auto clb=type::bind(cb);
-        tsk->blk=0; tsk->out=1; 
+        ptr_t<waiter> tsk = new waiter(); /*----------*/
+        auto clb=type::bind(cb); tsk->blk=0; tsk->out=1; 
 
         obj->queue.push([=](){
             if( tsk->out==0 ){ return -1; }

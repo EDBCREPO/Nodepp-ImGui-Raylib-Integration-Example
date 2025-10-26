@@ -32,16 +32,16 @@ using namespace nodepp;
 
 class imWindow_t { public:
 
-    using CALLBACK = function_t<int>;
+    using NODE_CLB = function_t<int>;
 
     struct NODE {
-        CALLBACK callback;
+        NODE_CLB node_clb;
         string_t name;
         bool state;
     };  ptr_t<NODE> obj;
 
-    imWindow_t( string_t name, CALLBACK callback ) : obj( new NODE() ){
-        obj->state = true; obj->callback = callback; obj->name = name;
+    imWindow_t( string_t name, NODE_CLB node_clb ) : obj( new NODE() ){
+        obj->state = true; obj->node_clb = node_clb; obj->name = name;
     }
 
     imWindow_t() : obj( new NODE() ) { obj->state=false; }
@@ -51,7 +51,7 @@ class imWindow_t { public:
     int emit() const noexcept {
         if( obj->state == 0 ){ return -1; }
 	ImGui::Begin( obj->name.get(), &obj->state );
-        if( obj->callback() ==-1 ){ close(); }
+        if( obj->node_clb() ==-1 ){ close(); }
     ImGui::End();
     return 1; }
 
@@ -94,7 +94,7 @@ int main( int argc, char** argv ) {
         static float f = 0.0f;
 
         for( auto x: regex::match_all( *api_response, "[^\n]+" ) ){
-             ImGui::Text( x.get() );
+             ImGui::Text( "%s", x.get() );
         }
 
         return 1;
@@ -138,7 +138,7 @@ int main( int argc, char** argv ) {
         } while(0); }
 
         item.map([&]( string_t data ){
-            ImGui::Text( data.get() );
+            ImGui::Text( "%s", data.get() );
         });
 		
         return 1;

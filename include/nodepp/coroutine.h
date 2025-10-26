@@ -39,6 +39,8 @@ public:
     coroutine_t( T callback ) : obj( new NODE() ) { obj->callback = callback; }
 
     coroutine_t() : obj( new NODE() ) { obj->alive = 0; }
+
+    virtual ~coroutine_t() noexcept {}
     
     /*─······································································─*/
 

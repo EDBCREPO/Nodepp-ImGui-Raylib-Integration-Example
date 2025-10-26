@@ -77,7 +77,7 @@ public:
            { throw except_t("can't initializate hash_t"); }
     }
 
-    ~hash_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~hash_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     EVP_MD_CTX* get_fd() const noexcept { return obj->ctx; }
 
@@ -135,7 +135,7 @@ public:
            { throw except_t("can't initializate hmac_t"); }
     }
     
-    ~hmac_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~hmac_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     HMAC_CTX* get_fd() const noexcept { return obj->ctx; }
 
@@ -197,7 +197,7 @@ public:
 
     xor_t() noexcept : obj( new NODE() ) { obj->state = 0; }
     
-    ~xor_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~xor_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     void update( string_t msg ) const noexcept { if( obj->state != 1 ){ return; }
         while( !msg.empty() ){ string_t tmp = msg.splice( 0, CHUNK_SIZE );
@@ -270,7 +270,7 @@ public:
            { throw except_t("can't initializate cipher_t"); }
     }
     
-    ~cipher_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~cipher_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     EVP_CIPHER_CTX* get_fd() const noexcept { return obj->ctx; }
 
@@ -349,7 +349,7 @@ public:
         }
     }
     
-    ~encrypt_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~encrypt_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     EVP_CIPHER_CTX* get_fd() const noexcept { return obj->ctx; }
 
@@ -419,7 +419,7 @@ public:
         }
     }
     
-    ~decrypt_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~decrypt_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     EVP_CIPHER_CTX* get_fd() const noexcept { return obj->ctx; }
 
@@ -466,7 +466,7 @@ public:
     event_t<>         onClose;
     event_t<string_t> onData;
 
-    ~base64_encoder_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~base64_encoder_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     base64_encoder_t() noexcept : obj( new NODE() ) {
         obj->state = 1; obj->bff = ptr_t<char>( CHUNK_SIZE, '\0' );
@@ -546,7 +546,7 @@ public:
            { throw except_t("can't initializate encoder"); }
     }
     
-    ~encoder_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~encoder_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     string_t get() const noexcept { free(); return obj->buff; }
 
@@ -608,7 +608,7 @@ public:
     event_t<>         onClose;
     event_t<string_t> onData;
 
-    ~base64_decoder_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~base64_decoder_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     base64_decoder_t() noexcept : obj( new NODE() ) {
         obj->state = 1; obj->bff = ptr_t<char>( CHUNK_SIZE, '\0' );
@@ -682,7 +682,7 @@ public:
            { throw except_t("can't initializate decoder"); }
     }
     
-    ~decoder_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~decoder_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     void update( const string_t& msg ) const { 
         if( obj->state != 1 ){ return; }
@@ -730,7 +730,7 @@ protected:
         bool  state= 0;
     };  ptr_t<NODE> obj;
 
-    static int CALLBACK ( char *buf, int size, int rwflag, void *args ) {
+    static int PASS_CLB ( char *buf, int size, int rwflag, void *args ) {
         if( args == nullptr || rwflag != 1 ){ return -1; }
         strncpy( buf, (char*)args, size );
                 buf[ size - 1 ] = '\0';
@@ -739,10 +739,10 @@ protected:
 
 public:
 
-    X509_t( uint rsa_size=2048 ) : obj( new NODE() ) { 
-
-        obj->ctx = X509_new(); obj->name = X509_NAME_new();  
-        obj->rsa = RSA_new(); obj->num = BN_new();
+    X509_t( uint rsa_size=2048 ) : obj( new NODE() ) {
+        
+        obj->ctx = X509_new(); obj->name= X509_NAME_new();  
+        obj->rsa = RSA_new();  obj->num = BN_new();
         obj->pkey= EVP_PKEY_new();
         
         BN_set_word( obj->num, RSA_F4 );
@@ -753,7 +753,7 @@ public:
 
     }
 
-    ~X509_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~X509_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     EVP_PKEY* get_pub()  const noexcept { return obj->pkey; }
 
@@ -784,7 +784,7 @@ public:
 
     string_t write_private_key_to_memory( const char* pass=NULL ) const {
         BIO* bo = BIO_new( BIO_s_mem() ); char* data;
-        PEM_write_bio_RSAPrivateKey( bo, obj->rsa, NULL, NULL, 0, &CALLBACK, (void*)pass );
+        PEM_write_bio_RSAPrivateKey( bo, obj->rsa, NULL, NULL, 0, &PASS_CLB, (void*)pass );
         long len = BIO_get_mem_data( bo, &data ); string_t res ( data, len );
         BIO_free(bo); return res;
     }
@@ -799,7 +799,7 @@ public:
 
     void write_private_key( const string_t& path, const char* pass=NULL ) const {
         auto fp = fopen( path.get(), "w"); PEM_write_RSAPrivateKey( 
-             fp, obj->rsa, NULL, NULL, 0, &CALLBACK, (void*)pass 
+             fp, obj->rsa, NULL, NULL, 0, &PASS_CLB, (void*)pass 
         ); fclose( fp );
     }
 
@@ -831,7 +831,7 @@ protected:
         bool  state = 0;
     };  ptr_t<NODE> obj;
 
-    static int CALLBACK ( char *buf, int size, int rwflag, void *args ) {
+    static int PASS_CLB ( char *buf, int size, int rwflag, void *args ) {
         if( args == nullptr || rwflag != 1 ){ return -1; }
         strncpy( buf, (char*)args, size );
                 buf[ size - 1 ] = '\0';
@@ -849,7 +849,7 @@ public:
            { throw except_t("creating rsa object"); }
     }
 
-    ~rsa_t() noexcept { if( obj.count() > 1 ){ return; } free(); }
+    virtual ~rsa_t() noexcept { if( obj.count() > 1 ){ return; } free(); }
 
     RSA* get_fd() const noexcept { return obj->rsa; }
 
@@ -861,21 +861,21 @@ public:
 
     void read_private_key_from_memory( const string_t& key, const char* pass=NULL ) const {
         BIO* bo = BIO_new( BIO_s_mem() ); BIO_write( bo, key.get(), key.size() );
-        if( !PEM_read_bio_RSAPrivateKey( bo, &obj->rsa, &CALLBACK, (void*)pass ) ){
+        if( !PEM_read_bio_RSAPrivateKey( bo, &obj->rsa, &PASS_CLB, (void*)pass ) ){
             BIO_free(bo); throw except_t( "Invalid RSA Key" );
         }   BIO_free(bo); obj->bff.resize(RSA_size(obj->rsa));
     }
 
     void read_public_key_from_memory( const string_t& key, const char* pass=NULL ) const {
         BIO* bo = BIO_new( BIO_s_mem() ); BIO_write( bo, key.get(), key.size() );
-        if( !PEM_read_bio_RSAPublicKey( bo, &obj->rsa, &CALLBACK, (void*)pass ) ){
+        if( !PEM_read_bio_RSAPublicKey( bo, &obj->rsa, &PASS_CLB, (void*)pass ) ){
             BIO_free(bo); throw except_t( "Invalid RSA Key" );
         }   BIO_free(bo); obj->bff.resize(RSA_size(obj->rsa));
     }
 
     string_t write_private_key_to_memory( const char* pass=NULL ) const {
         BIO* bo = BIO_new( BIO_s_mem() ); char* data;
-        PEM_write_bio_RSAPrivateKey( bo, obj->rsa, NULL, NULL, 0, &CALLBACK, (void*)pass );
+        PEM_write_bio_RSAPrivateKey( bo, obj->rsa, NULL, NULL, 0, &PASS_CLB, (void*)pass );
         long len = BIO_get_mem_data( bo, &data );
         string_t res ( data, len );
         BIO_free(bo); return res;
@@ -892,7 +892,7 @@ public:
     int write_private_key( const string_t& path, const char* pass=NULL ) const {
         FILE* fp = fopen( path.data() , "w"); int res = 0;
         if ( fp == nullptr ){ throw except_t("while writing private key"); }
-        res = PEM_write_RSAPrivateKey( fp, obj->rsa, NULL, NULL, 0, &CALLBACK, (void*)pass );
+        res = PEM_write_RSAPrivateKey( fp, obj->rsa, NULL, NULL, 0, &PASS_CLB, (void*)pass );
         fclose( fp ); return res;
     }
 
@@ -906,7 +906,7 @@ public:
     void read_public_key( const string_t& path, const char* pass=NULL ) const {
         FILE* fp = fopen( path.data(), "r" );
         if( fp == nullptr ){ throw except_t("while reading public key"); }
-        if( !PEM_read_RSAPublicKey( fp, &obj->rsa, &CALLBACK, (void*)pass ) ){
+        if( !PEM_read_RSAPublicKey( fp, &obj->rsa, &PASS_CLB, (void*)pass ) ){
             fclose( fp ); throw except_t( "Invalid RSA Key" );
         }   fclose( fp ); obj->bff.resize(RSA_size(obj->rsa));
     }
@@ -914,7 +914,7 @@ public:
     void read_private_key( const string_t& path, const char* pass=NULL ) const {
         FILE* fp = fopen( path.data(), "r" );
         if( fp == nullptr ){ throw except_t("while reading private key"); }
-        if( !PEM_read_RSAPrivateKey( fp, &obj->rsa, &CALLBACK, (void*)pass ) ){
+        if( !PEM_read_RSAPrivateKey( fp, &obj->rsa, &PASS_CLB, (void*)pass ) ){
             fclose( fp ); throw except_t( "Invalid RSA Key" );
         }   fclose( fp ); obj->bff.resize(RSA_size(obj->rsa));
     }
@@ -1012,7 +1012,7 @@ public:
         obj->priv_key = (BIGNUM*)  EC_KEY_get0_private_key( obj->key_pair );
     }
     
-    ~ec_t() noexcept { if( obj.count()>1 ){ return; } free(); }
+    virtual ~ec_t() noexcept { if( obj.count()>1 ){ return; } free(); }
 
     string_t get_public_key( uint x = 0 ) const noexcept { 
         if( obj->state != 1 ){ return nullptr; }
@@ -1063,7 +1063,7 @@ public:
           { throw except_t( "creating new dh" ); }
     }
 
-    ~dh_t() noexcept { if( obj.count() > 1 ){ return; } free(); }
+    virtual ~dh_t() noexcept { if( obj.count() > 1 ){ return; } free(); }
 
     int generate_keys( int len=512 ) const noexcept {
         if( !DH_generate_parameters_ex( obj->dh, len, DH_GENERATOR_2, NULL ) )
@@ -1124,7 +1124,7 @@ protected:
         bool    state = 0;
     };  ptr_t<NODE> obj;
     
-    static int CALLBACK ( char *buf, int size, int rwflag, void *args ) {
+    static int PASS_CLB ( char *buf, int size, int rwflag, void *args ) {
         if( args == nullptr || rwflag != 1 ){ return -1; }
         strncpy( buf, (char*)args, size );
                 buf[ size - 1 ] = '\0';
@@ -1137,7 +1137,7 @@ public:
         obj->state = 1; obj->dsa = DSA_new(); 
     }
 
-    ~dsa_t() noexcept { if( obj.count() > 1 ){ return; } free(); }
+    virtual ~dsa_t() noexcept { if( obj.count() > 1 ){ return; } free(); }
 
     int generate_keys( uint len=512 ) const noexcept {
         if(!DSA_generate_parameters_ex( obj->dsa, len, NULL, 0, NULL, NULL, NULL ) )
@@ -1159,19 +1159,19 @@ public:
 
     void read_private_key_from_memory( const string_t& key, const char* pass=NULL ) const {
         BIO* bo = BIO_new( BIO_s_mem() ); BIO_write( bo, key.get(), key.size() );
-        if( !PEM_read_bio_DSAPrivateKey( bo, &obj->dsa, &CALLBACK, (void*)pass ) )
+        if( !PEM_read_bio_DSAPrivateKey( bo, &obj->dsa, &PASS_CLB, (void*)pass ) )
           { BIO_free(bo); throw except_t( "Invalid DSA Key" ); } BIO_free(bo);
     }
 
     void read_public_key_from_memory( const string_t& key, const char* pass=NULL ) const {
         BIO* bo = BIO_new( BIO_s_mem() ); BIO_write( bo, key.get(), key.size() );
-        if( !PEM_read_bio_DSA_PUBKEY( bo, &obj->dsa, &CALLBACK, (void*)pass ) )
+        if( !PEM_read_bio_DSA_PUBKEY( bo, &obj->dsa, &PASS_CLB, (void*)pass ) )
           { BIO_free(bo); throw except_t( "Invalid DSA Key" ); } BIO_free(bo);
     }
 
     string_t write_private_key_to_memory( const char* pass=NULL ) const {
         BIO* bo = BIO_new( BIO_s_mem() ); char* data;
-        PEM_write_bio_DSAPrivateKey( bo, obj->dsa, NULL, NULL, 0, &CALLBACK, (void*)pass );
+        PEM_write_bio_DSAPrivateKey( bo, obj->dsa, NULL, NULL, 0, &PASS_CLB, (void*)pass );
         long len = BIO_get_mem_data( bo, &data );
         string_t res ( data, len );
         BIO_free(bo); return res;
@@ -1188,7 +1188,7 @@ public:
     void read_private_key( const string_t& path, const char* pass=NULL ) const {
         FILE* fp = fopen(path.data(),"r");
         if ( fp == nullptr ){ throw except_t(" while reading private key"); }
-        obj->dsa = PEM_read_DSAPrivateKey( fp, &obj->dsa, &CALLBACK, (void*)pass );
+        obj->dsa = PEM_read_DSAPrivateKey( fp, &obj->dsa, &PASS_CLB, (void*)pass );
         if ( obj->dsa == nullptr )
            { fclose(fp); throw except_t( "Invalid DSA Key" ); } fclose(fp); 
     }
@@ -1196,7 +1196,7 @@ public:
     void read_public_key( const string_t& path, const char* pass=NULL ) const {
         FILE* fp = fopen(path.data(),"r");
         if ( fp == nullptr ){ throw except_t(" while reading public key"); }
-        obj->dsa = PEM_read_DSA_PUBKEY( fp, &obj->dsa, &CALLBACK, (void*)pass );
+        obj->dsa = PEM_read_DSA_PUBKEY( fp, &obj->dsa, &PASS_CLB, (void*)pass );
         if ( obj->dsa == nullptr )
            { fclose(fp); throw except_t( "Invalid DSA Key" ); } fclose(fp);  
     }
@@ -1211,7 +1211,7 @@ public:
     void write_public_key( const string_t& path, const char* pass=NULL ) const {
         if( obj->state != 1 ){ return; } FILE* fp = fopen( path.data(), "w" );
         if ( fp == nullptr ) { throw except_t("while creating file"); }
-        if (!PEM_write_DSAPrivateKey( fp, obj->dsa, nullptr, nullptr, 0, &CALLBACK, (void*)pass ) )
+        if (!PEM_write_DSAPrivateKey( fp, obj->dsa, nullptr, nullptr, 0, &PASS_CLB, (void*)pass ) )
            { fclose( fp ); throw except_t("while writting the public key"); } fclose( fp );
     }
 

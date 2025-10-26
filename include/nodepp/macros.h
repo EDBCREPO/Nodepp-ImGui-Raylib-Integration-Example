@@ -14,11 +14,6 @@
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-#define coDelay(VALUE)  do { _time_=process::millis()+VALUE; coWait( process::millis()<_time_ ); } while (0)
-#define coUDelay(VALUE) do { _time_=process::micros()+VALUE; coWait( process::micros()<_time_ ); } while (0)
-
-/*────────────────────────────────────────────────────────────────────────────*/
-
 #define rand_range( A, B ) clamp( rand()%B, A, B )
 template< class T > T   min( const T& min, const T& max ){ return min < max ? min : max; }
 template< class T > T   max( const T& min, const T& max ){ return max > min ? max : min; }
@@ -26,18 +21,23 @@ template< class T > T clamp( const T& val, const T& _min, const T& _max ){ retur
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-#define coNext         do { _state_ = _LINE_; return  1; case _LINE_:; } while(0)
-#define coYield(VALUE) do { _state_ = VALUE ; return  1; case VALUE :; } while(0)
-#define coWait(VALUE)  do {  while  ( VALUE ){ coNext; }               } while(0)
-#define coGoto(VALUE)  do { _state_ = VALUE ; return  1;               } while(0)
-#define coStay(VALUE)  do { _state_ = VALUE ; return  0;               } while(0)
-#define coEnd          do { _state_ = 0;      return -1;               } while(0)
-#define coStop            } _state_ = 0;      return -1;               }
+#define coDelay(VALUE)  do { _time_=process::millis()+VALUE; coWait( process::millis()<_time_ ); } while(0)
+#define coUDelay(VALUE) do { _time_=process::micros()+VALUE; coWait( process::micros()<_time_ ); } while(0)
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
+#define coNext         do { coSet( _LINE_); return 1; case _LINE_:; } while(0);
+#define coYield(VALUE) do { coSet( VALUE ); return 1; case VALUE :; } while(0);
+#define coWait(VALUE)  do { while( VALUE ){ /*----------*/ coNext; }} while(0);
+#define coGoto(VALUE)  do { coSet( VALUE ); /*-------*/ return  1;  } while(0);
+#define coStay(VALUE)  do { coSet( VALUE ); /*-------*/ return  0;  } while(0);
+#define coEnd          do { _time_ = 0; _state_=_time_; return -1;  } while(0);
+#define coStop            } _time_ = 0; _state_=_time_; return -1;  } while(0);
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
 #define coStart  static int _state_=0; static ulong _time_=0; coBegin
-#define coBegin  { switch(_state_) { case 0:;
+#define coBegin  do { switch(_state_) { case 0:;
 #define coEmit   int operator()
 
 #define coSet(VALUE) _state_ = VALUE
@@ -99,7 +99,7 @@ int     _TASK_ = 0;
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-#define HASH_TABLE_SIZE 256
+#define HASH_TABLE_SIZE 16
 #define UNBFF_SIZE      4096
 #define CHUNK_SIZE      65536
 
@@ -220,10 +220,6 @@ int     _TASK_ = 0;
 #define NODEPP_POLL_POLL  1
 #define NODEPP_POLL_NONE  0
 
-#define NODEPP_POLL_READ  0x01
-#define NODEPP_POLL_WRITE 0x02
-#define NODEPP_POLL_ERROR 0x04
-
 #ifndef    _POLL_
 #if   _OS_ == NODEPP_OS_WINDOWS
    #define _POLL_ NODEPP_POLL_WPOLL
@@ -270,6 +266,19 @@ int     _TASK_ = 0;
 #define ushort unsigned short
 #define uint   unsigned int
 
+#endif
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
+using null_t = decltype( nullptr );
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
+#if _OS_ == NODEPP_OS_WINDOWS
+#define WIN32_LEAN_AND_MEAN 
+#define sscanff( BUFFER, FORMAT, ... ) sscanf_s( BUFFER, FORMAT, __VA_ARGS__ )
+#else
+#define sscanff( BUFFER, FORMAT, ... ) sscanf  ( BUFFER, FORMAT, __VA_ARGS__ )
 #endif
 
 /*────────────────────────────────────────────────────────────────────────────*/

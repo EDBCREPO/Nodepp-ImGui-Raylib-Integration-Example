@@ -32,11 +32,4 @@
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-namespace nodepp { namespace type { 
-    template< class T > struct can_be_polled         { static constexpr bool value = true ; };
-    template<>          struct can_be_polled<file_t> { static constexpr bool value = false; };
-}}
-
-/*────────────────────────────────────────────────────────────────────────────*/
-
 #endif

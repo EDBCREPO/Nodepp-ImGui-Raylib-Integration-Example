@@ -12,15 +12,33 @@
 #pragma once
 #include <windows.h>
 
-struct TIMEVAL { FILETIME ft; ULARGE_INTEGER time; };
+struct NODE_INTERVAL { FILETIME ft; ULARGE_INTEGER time; };
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-namespace nodepp { namespace process { TIMEVAL timeval;
+namespace nodepp { namespace process {
 
-    ulong seconds(){ return timeval.time.QuadPart / 10000000; }
-    ulong  millis(){ return timeval.time.QuadPart / 10000; }
-    ulong  micros(){ return timeval.time.QuadPart / 10; }
+    NODE_INTERVAL get_new_interval(){ 
+        NODE_INTERVAL interval; GetSystemTimeAsFileTime( &interval.ft );
+        interval.time.HighPart = interval.ft.dwHighDateTime;
+        interval.time.LowPart  = interval.ft.dwLowDateTime;
+        return interval;
+    }
+
+    ulong micros(){ 
+        NODE_INTERVAL interval = get_new_interval(); 
+        return interval.time.QuadPart / 10; 
+    }
+
+    ulong millis(){ 
+        NODE_INTERVAL interval = get_new_interval(); 
+        return interval.time.QuadPart / 10000; 
+    }
+
+    ulong seconds(){ 
+        NODE_INTERVAL interval = get_new_interval(); 
+        return interval.time.QuadPart / 10000000; 
+    }
 
 }}
 
@@ -28,13 +46,9 @@ namespace nodepp { namespace process { TIMEVAL timeval;
 
 namespace nodepp { namespace process {
 
-    void delay( ulong time ){ if( time == 0 ){ return; } ::Sleep( time ); }
+    void delay( ulong time ){ ::Sleep( time ); }
 
-    void yield(){ 
-        delay( TIMEOUT ); GetSystemTimeAsFileTime(&timeval.ft);
-        timeval.time.HighPart = timeval.ft.dwHighDateTime;
-        timeval.time.LowPart  = timeval.ft.dwLowDateTime;
-    }
+    void yield(){ delay( TIMEOUT ); }
 
     ulong now(){ return millis(); }
 

@@ -11,7 +11,7 @@
 
 #ifndef NODEPP_WS
 #define NODEPP_WS
-#define SECRET "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+#define NODEPP_WS_SECRET "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
@@ -30,6 +30,8 @@ protected:
     };  ptr_t<NODE> ws;
 
 public:
+
+    virtual ~ws_t() noexcept {}
 
     template< class... T >
     ws_t( const T&... args ) noexcept : socket_t( args... ), ws( new NODE() ){}
@@ -55,8 +57,14 @@ namespace nodepp { namespace ws {
     tcp_t server( const tcp_t& skt ){ skt.onSocket([=]( socket_t cli ){
 
         auto hrv = type::cast<http_t>(cli);
-        if( !generator::ws::server(hrv) ){ skt.onConnect.skip(); return; }
-        process::add([=](){ skt.onConnect.emit(cli); return -1; }); 
+        if( !generator::ws::server( hrv ) )
+          { skt.onConnect.skip(); return; }   
+
+        process::add([=](){ 
+            skt.onConnect.resume( );
+            skt.onConnect.emit(cli); 
+            return -1;
+        });
 
     }); skt.onConnect([=]( ws_t cli ){
         cli.onDrain.once([=](){ cli.free(); });
@@ -77,8 +85,14 @@ namespace nodepp { namespace ws {
     skt.onSocket.once([=]( socket_t cli ){
 
         auto hrv = type::cast<http_t> (cli);
-        if(!generator::ws::client( hrv, uri ) ){ skt.onConnect.skip(); return; }  
-        process::add([=](){ skt.onConnect.emit(cli); return -1; }); 
+        if( !generator::ws::client( hrv, uri ) )
+          { skt.onConnect.skip(); return; }   
+
+        process::add([=](){ 
+            skt.onConnect.resume( );
+            skt.onConnect.emit(cli); 
+            return -1;
+        });
 
     }); skt.onConnect.once([=]( ws_t cli ){
         cli.onDrain.once([=](){ cli.free(); });
@@ -87,5 +101,5 @@ namespace nodepp { namespace ws {
 
 }}
 
-#undef SECRET
+#undef NODEPP_WS_SECRET
 #endif

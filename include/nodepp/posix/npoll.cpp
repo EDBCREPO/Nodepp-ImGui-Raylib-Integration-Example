@@ -13,46 +13,76 @@
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-namespace nodepp { class poll_t: public generator_t {
+namespace nodepp { enum POLL_STATE {
+    READ = 1, WRITE = 2, DUPLEX = 3
+};}
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
+namespace nodepp { class poll_t : public generator_t {
+private:
+
+    using NODE_CLB = function_t<int>;
+    struct waiter { bool blk; bool out; };
+
 protected:
 
-    struct POLLFD { int fd; int md; }; 
-
     struct NODE {
-        queue_t<POLLFD> ev;
-        ptr_t<int>      ls;
-    };  ptr_t<NODE>    obj;
+        queue_t<NODE_CLB> queue;
+    };  ptr_t<NODE> obj;
 
 public:
 
-    wait_t<ptr_t<int>> onEvent;
-    wait_t<int>        onWrite;
-    wait_t<int>        onError;
-    wait_t<int>        onRead;
-
-public: poll_t() noexcept : obj( new NODE() ) {}
-
-   ~poll_t() noexcept { if( obj.count() > 1 ){ return; } /*free();*/ }
+    virtual ~poll_t() noexcept {}
+    /*----*/ poll_t() noexcept : obj( new NODE() ) {}
 
     /*─······································································─*/
 
-    int next () noexcept { 
-    POLLFD x ; coBegin ; if( obj->ev.empty() ){ coEnd; } x = obj->ev.last()->data;
+    void clear() const noexcept { /*--*/ obj->queue.clear(); }
+
+    ulong size() const noexcept { return obj->queue.size (); }
+
+    bool empty() const noexcept { return obj->queue.empty(); }
+
+    /*─······································································─*/
+
+    inline int next() noexcept { 
+    coBegin
+        
+        if( obj->queue.empty() ) /*-*/ { coEnd; } do {
+        if( obj->queue.get()==nullptr ){ coEnd; }
+
+        auto x = obj->queue.get();
+        auto y = x->data();
+
+        switch( y ){
+            case -1: obj->queue.erase(x); break;
+            case  1: obj->queue.next();   break;
+            default: /*--------------*/   break;
+        } 
             
-          if( x.md & 1 ){ onWrite.emit(x.fd); obj->ls={{ 1,x.fd}}; onEvent.emit(obj->ls); }
-        elif( x.md & 4 ){  onRead.emit(x.fd); obj->ls={{ 0,x.fd}}; onEvent.emit(obj->ls); }
-        else            { onError.emit(x.fd); obj->ls={{-1,x.fd}}; onEvent.emit(obj->ls); }
+        return y; } while(0);
 
-    obj->ev.pop() ; coGoto(0) ; coFinish
-    };
+    coFinish }
 
     /*─······································································─*/
 
-    bool push_write( const int& fd ) noexcept { obj->ev.unshift({fd,1}); return true; }
+    template< class T, class U, class... W >
+    void* add( T, uchar, U cb, const W&... args ) noexcept {
 
-    bool push_read ( const int& fd ) noexcept { obj->ev.unshift({fd,4}); return true; }
+        ptr_t<waiter> tsk = new waiter(); /*----------*/
+        auto clb=type::bind(cb); tsk->blk=0; tsk->out=1; 
 
-    ptr_t<int> get_last_poll() const noexcept { return obj->ls; }
+        obj->queue.push([=](){
+            if( tsk->out==0 ){ return -1; }
+            if( tsk->blk==1 ){ return  1; } 
+                tsk->blk =1; int rs=(*clb)( arg... );
+            if( clb.null()  ){ return -1; }  
+                tsk->blk =0;   return !tsk->out?-1:rs;
+        }); 
+        
+        return (void*) &tsk->out;
+    }
 
 };}
 

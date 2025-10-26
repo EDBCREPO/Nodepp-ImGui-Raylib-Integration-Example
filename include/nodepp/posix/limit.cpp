@@ -51,8 +51,8 @@ namespace nodepp { namespace limit { ulong _count_=0;
 /*────────────────────────────────────────────────────────────────────────────*/
 
 namespace nodepp { namespace limit { class probe_t{ public:
-    probe_t() { ++_count_; }
-   ~probe_t() { --_count_; }
+    virtual ~probe_t() noexcept { --_count_; }
+    /*----*/ probe_t() noexcept { ++_count_; }
 };}}
 
 /*────────────────────────────────────────────────────────────────────────────*/
