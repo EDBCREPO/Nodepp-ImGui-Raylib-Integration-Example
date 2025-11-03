@@ -33,6 +33,9 @@ g++ ./include/imgui/imgui.cpp         \
 ./main
 ```
 
+# Showcase
+![IMAGE](https://miro.medium.com/v2/resize:fit:720/format:webp/1*WoEEsBCMAE4Y8-myeJUHcA.gif)
+
 # How it works
 [![IMAGE](https://miro.medium.com/v2/resize:fit:720/format:webp/1*wPG4kW4A-ToXS0JjdAg1lA.png)](https://medium.com/@EDBCBlog/designing-an-event-driven-imgui-architecture-from-zero-to-hero-no-phd-required-82290c082c6a)
 
